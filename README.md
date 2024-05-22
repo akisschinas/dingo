@@ -256,7 +256,7 @@ You could also set an alternative objective function. For example, to maximize t
 n = model.num_of_reactions()
 obj_fun = np.zeros(n)
 obj_fun[0] = 1
-model.biomass_function(obj_fun)
+model.objective_function(obj_fun)
 
 # apply FVA using the new objective function
 fva_output = model.fva()

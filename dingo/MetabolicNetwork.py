@@ -47,7 +47,7 @@ class MetabolicNetwork:
         self._metabolites = tuple_args[3]
         self._reactions = tuple_args[4]
         self._biomass_index = tuple_args[5]
-        self._biomass_function = tuple_args[6]
+        self._objective_function = tuple_args[6]
         self._medium = tuple_args[7]
         self._medium_indices = tuple_args[8]
         self._exchanges = tuple_args[9]
@@ -58,9 +58,9 @@ class MetabolicNetwork:
                 or self._lb.size != self._S.shape[1]
                 or len(self._metabolites) != self._S.shape[0]
                 or len(self._reactions) != self._S.shape[1]
-                or self._biomass_function.size != self._S.shape[1]
+                or self._objective_function.size != self._S.shape[1]
                 or (self._biomass_index < 0)
-                or (self._biomass_index > self._biomass_function.size)
+                or (self._biomass_index > self._objective_function.size)
             ):
                 raise Exception(
                     "Wrong tuple format given to initialize a metabolic network object."
@@ -112,7 +112,7 @@ class MetabolicNetwork:
                 self._lb,
                 self._ub,
                 self._S,
-                self._biomass_function,
+                self._objective_function,
                 self._parameters["opt_percentage"],
             )
         else:
@@ -120,7 +120,7 @@ class MetabolicNetwork:
                 self._lb,
                 self._ub,
                 self._S,
-                self._biomass_function,
+                self._objective_function,
                 self._parameters["opt_percentage"],
             )
 
@@ -128,9 +128,9 @@ class MetabolicNetwork:
         """A member function to apply the FBA method on the metabolic network."""
 
         if self._parameters["fast_computations"]:
-            return fast_fba(self._lb, self._ub, self._S, self._biomass_function)
+            return fast_fba(self._lb, self._ub, self._S, self._objective_function)
         else:
-            return slow_fba(self._lb, self._ub, self._S, self._biomass_function)
+            return slow_fba(self._lb, self._ub, self._S, self._objective_function)
 
     @property
     def lb(self):
@@ -157,8 +157,8 @@ class MetabolicNetwork:
         return self._biomass_index
 
     @property
-    def biomass_function(self):
-        return self._biomass_function
+    def objective_function(self):
+        return self._objective_function
 
     @property
     def medium(self):
@@ -181,7 +181,7 @@ class MetabolicNetwork:
             self._metabolites,
             self._reactions,
             self._biomass_index,
-            self._biomass_function,
+            self._objective_function,
             self._medium,
             self._inter_medium,
             self._exchanges
@@ -217,9 +217,9 @@ class MetabolicNetwork:
     def biomass_index(self, value):
         self._biomass_index = value
 
-    @biomass_function.setter
-    def biomass_function(self, value):
-        self._biomass_function = value
+    @objective_function.setter
+    def objective_function(self, value):
+        self._objective_function = value
 
 
     @medium.setter

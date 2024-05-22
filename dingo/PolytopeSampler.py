@@ -77,8 +77,8 @@ class PolytopeSampler:
         ):
 
             (
-                max_biomass_flux_vector,
-                max_biomass_objective,
+                max_flux_vector,
+                max_objective,
             ) = self._metabolic_network.fba()
 
             if (
@@ -90,7 +90,7 @@ class PolytopeSampler:
                     self._metabolic_network.lb,
                     self._metabolic_network.ub,
                     self._metabolic_network.S,
-                    self._metabolic_network.biomass_function,
+                    self._metabolic_network.objective_function,
                     self._parameters["opt_percentage"],
                 )
             else:
@@ -104,8 +104,8 @@ class PolytopeSampler:
                 (
                     min_fluxes,
                     max_fluxes,
-                    max_biomass_flux_vector,
-                    max_biomass_objective,
+                    max_flux_vector,
+                    max_objective,
                 ) = self._metabolic_network.fva()
 
                 A, b, Aeq, beq = get_matrices_of_low_dim_polytope(
@@ -123,11 +123,11 @@ class PolytopeSampler:
             ):
                 raise Exception("Preprocess for full dimensional polytope failed.")
 
-            A = np.vstack((A, -self._metabolic_network.biomass_function))
+            A = np.vstack((A, -self._metabolic_network.objective_function))
 
             b = np.append(
                 b,
-                -np.floor(max_biomass_objective / self._parameters["tol"])
+                -np.floor(max_objective / self._parameters["tol"])
                 * self._parameters["tol"]
                 * self._parameters["opt_percentage"]
                 / 100,
@@ -293,8 +293,8 @@ class PolytopeSampler:
     def sample_from_fva_output(
         min_fluxes,
         max_fluxes,
-        biomass_function,
-        max_biomass_objective,
+        objective_function,
+        max_objective,
         S,
         opt_percentage=100,
         ess=1000,
@@ -307,8 +307,8 @@ class PolytopeSampler:
         Keyword arguments:
         min_fluxes -- minimum values of the fluxes, i.e., a n-dimensional vector
         max_fluxes -- maximum values for the fluxes, i.e., a n-dimensional vector
-        biomass_function -- the biomass objective function
-        max_biomass_objective -- the maximum value of the biomass objective function
+        objective_function -- the objective function
+        max_objective -- the maximum value of the objective function
         S -- stoichiometric matrix
         opt_percentage -- consider solutions that give you at least a certain
                       percentage of the optimal solution (default is to consider
@@ -323,12 +323,12 @@ class PolytopeSampler:
             S, min_fluxes, max_fluxes, opt_percentage, tol
         )
 
-        A = np.vstack((A, -biomass_function))
+        A = np.vstack((A, -objective_function))
         b = np.append(
             b,
             -(opt_percentage / 100)
             * self._parameters["tol"]
-            * math.floor(max_biomass_objective / self._parameters["tol"]),
+            * math.floor(max_objective / self._parameters["tol"]),
         )
 
         A, b, N, N_shift = get_matrices_of_full_dim_polytope(A, b, Aeq, beq)
