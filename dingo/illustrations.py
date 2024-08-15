@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.io as pio
+import plotly.express as px
 from dingo.utils import compute_copula
 
 def plot_copula(data_flux1, data_flux2, n = 5, width = 900 , height = 600, export_format = "svg"):
@@ -82,3 +83,49 @@ def plot_histogram(reaction_fluxes, reaction, n_bins=40):
     plt.axis([np.amin(reaction_fluxes), np.amax(reaction_fluxes), 0, np.amax(n) * 1.2])
 
     plt.show()
+
+
+
+def plot_corr_matrix(corr_matrix, reactions, removed_reactions=[], format="svg"):
+    """A Python function to plot the heatmap of a model's pearson correlation matrix.
+
+    Keyword arguments:
+    corr_matrix -- A matrix produced from the "correlated_reactions" function
+    reactions -- A list with the model's reactions
+    removed_reactions -- A list with the removed reactions in case of a preprocess.
+                         If provided removed reactions are not plotted.
+    """
+    
+    sns_colormap = [[0.0, '#3f7f93'],
+                    [0.1, '#6397a7'],
+                    [0.2, '#88b1bd'],
+                    [0.3, '#acc9d2'],
+                    [0.4, '#d1e2e7'],
+                    [0.5, '#f2f2f2'],
+                    [0.6, '#f6cdd0'],
+                    [0.7, '#efa8ad'],
+                    [0.8, '#e8848b'],
+                    [0.9, '#e15e68'],
+                    [1.0, '#da3b46']]
+    
+    if removed_reactions != 0:
+        for reaction in reactions:
+            index = reactions.index(reaction)
+            if reaction in removed_reactions:
+               reactions[index] = None
+ 
+    fig = px.imshow(corr_matrix, 
+                    color_continuous_scale = sns_colormap,
+                    x = reactions, y = reactions, origin="upper")
+    
+    fig.update_layout(
+    xaxis=dict(tickfont=dict(size=5)),
+    yaxis=dict(tickfont=dict(size=5)),
+    width=900, height=900, plot_bgcolor="rgba(0,0,0,0)")
+    
+    fig.update_traces(xgap=1, ygap=1,   hoverongaps=False)
+    
+    fig.show()
+    
+    fig_name = "CorrelationMatrix." + format
+    pio.write_image(fig, fig_name, scale=2)

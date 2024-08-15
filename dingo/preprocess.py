@@ -2,32 +2,39 @@
 import cobra
 import cobra.manipulation
 from collections import Counter
-from dingo import MetabolicNetwork
+from dingo import MetabolicNetwork, PolytopeSampler
+from dingo.utils import correlated_reactions
+import numpy as np
 
 
 class PreProcess:
     
-    def __init__(self, model, tol=1e-6, open_exchanges=False):
+    def __init__(self, model, tol = 1e-6, open_exchanges = False, verbose = False):
 
         """
-        model parameter gets a cobra model as input
+        model -- parameter gets a cobra model as input
         
-        tol parameter gets a cutoff value used to classify 
-        zero-flux and mle reactions and compare FBA solutions
-        before and after reactions removal
+        tol -- parameter gets a cutoff value used to classify 
+               zero-flux and mle reactions and compare FBA solutions
+               before and after reactions removal
         
-        open_exchanges parameter is used in the function that identifies blocked reactions
-        It controls whether or not to open all exchange reactions to very high flux ranges
+        open_exchanges -- parameter is used in the function that identifies blocked reactions
+                          It controls whether or not to open all exchange reactions 
+                          to very high flux ranges.
+                          
+        verbose -- A boolean type variable that if True 
+                   additional information for preprocess is printed.
         """
         
         self._model = model
         self._tol = tol
-        
-        if self._tol > 1e-6:
-            print("Tolerance value set to",self._tol,"while default value is 1e-6. A looser check will be performed")
-        
+                
         self._open_exchanges = open_exchanges
+        self._verbose = verbose
         
+        if self._tol > 1e-6 and verbose == True:
+            print("Tolerance value set to",self._tol,"while default value is 1e-6. A looser check will be performed")
+
         self._objective = self._objective_function()
         self._initial_reactions = self._initial()
         self._reaction_bounds_dict = self._reaction_bounds_dictionary()
@@ -170,10 +177,11 @@ class PreProcess:
         When the "extend" parameter is set to True, the function  performes
         an additional check to remove further reactions. These reactions 
         are the ones that if knocked-down, they do not affect the value 
-        of the objective function. These reactions are removed simultaneously
-        from the model. If this simultaneous removal produces an infesible
-        solution (or a solution of 0) to the objective function, 
-        these reactions are restored with their initial bounds.
+        of the objective function. Reactions are removed in an ordered way. 
+        The ones with the least overall correlation in a correlation matrix 
+        are removed first. These reactions are removed one by one from the model. 
+        If this removal produces an infeasible solution (or a solution of 0) 
+        to the objective function, these reactions are restored to their initial bounds.
         
         A dingo-type tuple is then created from the cobra model 
         using the "cobra_dingo_tuple" function.
@@ -201,58 +209,75 @@ class PreProcess:
         
         elif extend == False:
             
-            print(len(self._removed_reactions), "of the", len(self._initial_reactions), \
-            "reactions were removed from the model with extend set to", extend) 
+            if self._verbose == True:
+                print(len(self._removed_reactions), "of the", len(self._initial_reactions), \
+                "reactions were removed from the model with extend set to", extend) 
             
             # call this functon to convert cobra to dingo model
             self._dingo_model = MetabolicNetwork.from_cobra_model(self._model)
             return self._removed_reactions, self._dingo_model 
 
         elif extend == True:
-  
+            
+            reduced_dingo_model = MetabolicNetwork.from_cobra_model(self._model)
+            reactions = reduced_dingo_model.reactions      
+            sampler = PolytopeSampler(reduced_dingo_model)
+            steady_states = sampler.generate_steady_states()
+
+            # calculate correlation matrix with additional filtering from copula indicator       
+            corr_matrix = correlated_reactions(
+                                steady_states,  
+                                pearson_cutoff = 0,
+                                indicator_cutoff = 0, 
+                                cells = 10,
+                                cop_coeff = 0.3,
+                                lower_triangle = False)
+            
+            # convert pearson values to absolute values
+            abs_array = abs(corr_matrix)
+            # sum absolute pearson values per row 
+            sum_array = np.sum((abs_array), axis=1)
+            # get indices of ordered sum values
+            order_sum_indices = np.argsort(sum_array)
+            
+            fba_solution_before = self._model.optimize().objective_value
+            
+            # count additional reactions with a possibility of removal
+            additional_removed_reactions_count = 0 
+            
             # find additional reactions with a possibility of removal
-            additional_removed_reactions_list = []
-            additional_removed_reactions_count = 0       
-            for reaction in remained_reactions:
-            
-                fba_solution_before = self._model.optimize().objective_value
-            
-                # perform a knock-out and check the output
-                self._model.reactions.get_by_id(reaction).lower_bound = 0
-                self._model.reactions.get_by_id(reaction).upper_bound = 0
+            for index in order_sum_indices:
+                if reactions[index] in remained_reactions:
+                    reaction = reactions[index]
+                                
+                    # perform a knock-out and check the output
+                    self._model.reactions.get_by_id(reaction).lower_bound = 0
+                    self._model.reactions.get_by_id(reaction).upper_bound = 0
     
-                fba_solution_after = self._model.optimize().objective_value
-            
-                if fba_solution_after != None:
-                    if (abs(fba_solution_after - fba_solution_before) < tol):
-                        self._removed_reactions.append(reaction)
-                        additional_removed_reactions_list.append(reaction)
-                        additional_removed_reactions_count += 1
-              
-                self._model.reactions.get_by_id(reaction).upper_bound = self._reaction_bounds_dict[reaction][1]
-                self._model.reactions.get_by_id(reaction).lower_bound = self._reaction_bounds_dict[reaction][0]
-            
-            
-            # compare FBA solution before and after the removal of additional reactions
-            fba_solution_initial = self._model.optimize().objective_value
-            self._remove_model_reactions()        
-            fba_solution_final = self._model.optimize().objective_value
+                    try:
+                        fba_solution_after = self._model.optimize().objective_value
+                        if (abs(fba_solution_after - fba_solution_before) > tol):
+                            # restore bounds
+                            self._model.reactions.get_by_id(reaction).bounds = self._reaction_bounds_dict[reaction]
+                    
+                    # if system has no solution
+                    except:
+                        self._model.reactions.get_by_id(reaction).bounds = self._reaction_bounds_dict[reaction]
+                    
+                    finally:
+                        if (fba_solution_after != None) and (abs(fba_solution_after - fba_solution_before) < tol):
+                            self._removed_reactions.append(reaction)
+                            additional_removed_reactions_count += 1
+                        else:
+                            # restore bounds
+                            self._model.reactions.get_by_id(reaction).bounds = self._reaction_bounds_dict[reaction]
 
-                
-            # if FBA solution after removal is infeasible or altered
-            # restore the initial reactions bounds
-            if (fba_solution_final == None) | (abs(fba_solution_final - fba_solution_initial) > tol):
-                for reaction in additional_removed_reactions_list:
-                    self._model.reactions.get_by_id(reaction).bounds = self._reaction_bounds_dict[reaction]
-                    self._removed_reactions.remove(reaction)
+            
+            if self._verbose == True:  
                 print(len(self._removed_reactions), "of the", len(self._initial_reactions), \
                 "reactions were removed from the model with extend set to", extend)
-
-            else:
-                print(len(self._removed_reactions), "of the", len(self._initial_reactions), \
-                "reactions were removed from the model with extend set to", extend)
-
-    
+                print(additional_removed_reactions_count, "additional reaction(s) removed")
+                        
             # call this functon to convert cobra to dingo model
             self._dingo_model = MetabolicNetwork.from_cobra_model(self._model)
             return self._removed_reactions, self._dingo_model 
