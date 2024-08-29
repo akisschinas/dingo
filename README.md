@@ -62,7 +62,7 @@ poetry shell
 poetry install
 ```
 
-To exploit the fast implementations of dingo, you have to install the [Gurobi solver](https://www.gurobi.com/). Run
+You can install the [Gurobi solver](https://www.gurobi.com/) for faster linear programming optimization. Run
 
 ```
 pip3 install -i https://pypi.gurobi.com gurobipy
@@ -75,7 +75,7 @@ Then, you will need a [license](https://www.gurobi.com/downloads/end-user-licens
 
 ## Unit tests
 
-Now, you can run the unit tests by the following commands:
+Now, you can run the unit tests by the following commands (with the default solver `highs`):
 ```
 python3 tests/fba.py
 python3 tests/full_dimensional.py
@@ -87,7 +87,12 @@ python3 tests/sampling.py
 
 If you have installed Gurobi successfully, then run
 ```
-python3 tests/fast_implementation_test.py
+python3 tests/fba.py gurobi
+python3 tests/full_dimensional.py gurobi
+python3 tests/max_ball.py gurobi
+python3 tests/scaling.py gurobi
+python3 tests/rounding.py gurobi
+python3 tests/sampling.py gurobi
 ```
 
 ## Tutorial
@@ -184,21 +189,16 @@ The MCMC methods that dingo (through `volesti` library) provides are the followi
 
 
 
+#### Switch the linear programming solver
 
-
-#### Fast and slow mode
-
-If you have installed successfully the `gurobi` library, dingo turns to the *fast mode* by default. To set a certain mode you could use the following member functions,
+We use `pyoptinterface` to interface with the linear programming solvers. To switch the solver that `dingo` uses, you can use the `set_default_solver` function. The default solver is `highs` and you can switch to `gurobi` by running,
 
 ```python
-sampler = polytope_sampler(model)
-
-#set fast mode to use gurobi library
-sampler.set_fast_mode()
-#set slow mode to use scipy functions
-sampler.set_slow_mode()
+from dingo import set_default_solver
+set_default_solver("gurobi")
 ```
 
+You can also switch to other solvers that `pyoptinterface` supports, but we recommend using `highs` or `gurobi`. If you have issues with the solver, you can check the `pyoptinterface` [documentation](https://metab0t.github.io/PyOptInterface/getting_started.html).
 
 ### Apply FBA and FVA methods
 
