@@ -1,6 +1,6 @@
 # This is a cython wrapper for the C++ library volesti
 # volesti (volume computation and sampling library)
-  
+
 # Copyright (c) 2012-2021 Vissarion Fisikopoulos
 # Copyright (c) 2018-2021 Apostolos Chalkis
 # Copyright (c) 2020-2021 Pedro Zuidberg Dos Martires
@@ -54,8 +54,8 @@ cdef extern from "bindings.h":
 
       # Random sampling
       double apply_sampling(int walk_len, int number_of_points, int number_of_points_to_burn, \
-                              int method, double* inner_point, double radius, double* samples, double variance_value, double* bias_vector)
-      
+                              char* method, double* inner_point, double radius, double* samples, double variance_value, double* bias_vector)
+
       # Initialize the parameters for the (m)ultiphase (m)onte (c)arlo (s)ampling algorithm
       void mmcs_initialize(unsigned int d, int ess, int psrf_check, int parallelism, int num_threads);
 
@@ -124,38 +124,13 @@ cdef class HPolytope:
 
       # Get max inscribed ball for the initial polytope
       temp_center, radius = inner_ball(self._A, self._b, solver)
-      
+
       cdef double[::1] inner_point_for_c = np.asarray(temp_center)
-      
+
       cdef double[::1] bias_vector_ = np.asarray(bias_vector)
-      
-      if method == 'cdhr':
-         int_method = 1
-      elif method == 'rdhr':
-         int_method = 2
-      elif method == 'billiard_walk':
-         int_method = 3
-      elif method == 'ball_walk':
-         int_method = 4
-      elif method == 'dikin_walk':
-         int_method = 5
-      elif method == 'john_walk':
-         int_method = 6
-      elif method == 'vaidya_walk':
-         int_method = 7
-      elif method == 'gaussian_hmc_walk':
-         int_method = 8
-      elif method == 'exponential_hmc_walk':
-         int_method = 9
-      elif method == 'hmc_leapfrog_gaussian':
-         int_method = 10
-      elif method == 'hmc_leapfrog_exponential':
-         int_method = 11
-      else:
-         raise RuntimeError("Uknown MCMC sampling method")
-      
+
       self.polytope_cpp.apply_sampling(walk_len, number_of_points, number_of_points_to_burn, \
-                                       int_method, &inner_point_for_c[0], radius, &samples[0,0], variance_value, &bias_vector_[0])
+                                       method, &inner_point_for_c[0], radius, &samples[0,0], variance_value, &bias_vector_[0])
       return np.asarray(samples)
 
 
@@ -172,12 +147,12 @@ cdef class HPolytope:
       cdef double[:,::1] T_matrix = np.zeros((n_variables, n_variables), dtype=np.float64, order="C")
       cdef double[::1] shift = np.zeros((n_variables), dtype=np.float64, order="C")
       cdef double round_value
-      
+
       # Get max inscribed ball for the initial polytope
       center, radius = inner_ball(self._A, self._b, solver)
-      
+
       cdef double[::1] inner_point_for_c = np.asarray(center)
-      
+
       if rounding_method == 'john_position':
          int_method = 1
       elif rounding_method == 'isotropic_position':
@@ -190,8 +165,8 @@ cdef class HPolytope:
       self.polytope_cpp.apply_rounding(int_method, &new_A[0,0], &new_b[0], &T_matrix[0,0], &shift[0], round_value, &inner_point_for_c[0], radius)
 
       return np.asarray(new_A),np.asarray(new_b),np.asarray(T_matrix),np.asarray(shift),np.asarray(round_value)
-   
-   
+
+
    # (m)ultiphase (m)onte (c)arlo (s)ampling algorithm to generate steady states of a metabolic network
    def mmcs(self, ess = 1000, psrf_check = True, parallelism = False, num_threads = 2, solver = None):
 
@@ -205,7 +180,7 @@ cdef class HPolytope:
       cdef int N_ess = ess
       cdef bint check_psrf = bool(psrf_check) # restrict variables to {0,1} using Python's rules
       cdef bint parallel = bool(parallelism)
-      
+
       self.polytope_cpp.mmcs_initialize(n_variables, ess, check_psrf, parallel, num_threads)
 
       # Get max inscribed ball for the initial polytope
@@ -215,14 +190,14 @@ cdef class HPolytope:
       while True:
 
          check = self.polytope_cpp.mmcs_step(&inner_point_for_c[0], radius, N_samples)
-         
+
          if check > 1.0 and check < 2.0:
             break
 
          self.polytope_cpp.get_polytope_as_matrices(&new_A[0,0], &new_b[0])
          new_temp_c, radius = inner_ball(np.asarray(new_A), np.asarray(new_b), solver)
          inner_point_for_c = np.asarray(new_temp_c)
-      
+
       cdef double[:,::1] samples = np.zeros((n_variables, N_samples), dtype=np.float64, order="C")
       self.polytope_cpp.get_mmcs_samples(&T_matrix[0,0], &T_shift[0], &samples[0,0])
       self.polytope_cpp.get_polytope_as_matrices(&new_A[0,0], &new_b[0])
