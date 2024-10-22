@@ -91,7 +91,8 @@ double HPolytopeCPP::apply_sampling(int walk_len,
                                     double radius,
                                     double* samples,
                                     double variance_value,
-                                    double* bias_vector_){
+                                    double* bias_vector_,
+                                    int ess){
 
    RNGType rng(HP.dimension());
    HP.normalize();
@@ -133,6 +134,11 @@ double HPolytopeCPP::apply_sampling(int walk_len,
    } else if (strcmp(method, "vaidya_walk")) { // vaidya walk
       uniform_sampling<VaidyaWalk>(rand_points, HP, rng, walk_len, number_of_points,
                                    starting_point, number_of_points_to_burn);
+   } else if (strcmp(method, "mmcs")) { // vaidya walk
+      MT S;
+      int total_ess;
+      mmcs(HP, ess, S, total_ess, walk_len, rng);
+      samples = S.data();
    } else if (strcmp(method, "gaussian_hmc_walk")) { // Gaussian sampling with exact HMC walk
       NT a = NT(1)/(NT(2)*variance);
       gaussian_sampling<GaussianHamiltonianMonteCarloExactWalk>(rand_points, HP, rng, walk_len, number_of_points, a,
@@ -162,14 +168,15 @@ double HPolytopeCPP::apply_sampling(int walk_len,
       throw std::runtime_error("This function must not be called.");
    }
 
-   // The following block of code allows us to copy the sampled points
-   auto n_si=0;
-   for (auto it_s = rand_points.cbegin(); it_s != rand_points.cend(); it_s++){
-      for (auto i = 0; i != it_s->dimension(); i++){
-         samples[n_si++] = (*it_s)[i];
-      }
+   if (!strcmp(method, "mmcs")) {
+    // The following block of code allows us to copy the sampled points
+    auto n_si=0;
+    for (auto it_s = rand_points.cbegin(); it_s != rand_points.cend(); it_s++){
+        for (auto i = 0; i != it_s->dimension(); i++){
+            samples[n_si++] = (*it_s)[i];
+        }
+    }
    }
-
    return 0.0;
 }
 //////////         End of "generate_samples()"          //////////
