@@ -137,7 +137,9 @@ double HPolytopeCPP::apply_sampling(int walk_len,
    } else if (strcmp(method, "mmcs")) { // vaidya walk
       MT S;
       int total_ess;
-      mmcs(HP, ess, S, total_ess, walk_len, rng);
+      //TODO: avoid passing polytopes as non-const references
+      const Hpolytope HP_const = HP;
+      mmcs(HP_const, ess, S, total_ess, walk_len, rng);
       samples = S.data();
    } else if (strcmp(method, "gaussian_hmc_walk")) { // Gaussian sampling with exact HMC walk
       NT a = NT(1)/(NT(2)*variance);

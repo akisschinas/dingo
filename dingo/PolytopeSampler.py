@@ -161,7 +161,7 @@ class PolytopeSampler:
         return steady_states
 
     def generate_steady_states_no_multiphase(
-        self, method = 'billiard_walk', n=1000, burn_in=0, thinning=1, variance=1.0, bias_vector=None
+        self, method = 'billiard_walk', n=1000, burn_in=0, thinning=1, variance=1.0, bias_vector=None, ess=1000
     ):
         """A member function to sample steady states.
 
@@ -181,7 +181,7 @@ class PolytopeSampler:
         else:
             bias_vector = bias_vector.astype('float64')
 
-        samples = P.generate_samples(method.encode('utf-8'), n, burn_in, thinning, variance, bias_vector, self._parameters["solver"])
+        samples = P.generate_samples(method.encode('utf-8'), n, burn_in, thinning, variance, bias_vector, self._parameters["solver"], ess)
         samples_T = samples.T
 
         steady_states = map_samples_to_steady_states(
@@ -216,7 +216,7 @@ class PolytopeSampler:
 
     @staticmethod
     def sample_from_polytope_no_multiphase(
-        A, b, method = 'billiard_walk', n=1000, burn_in=0, thinning=1, variance=1.0, bias_vector=None, solver=None
+        A, b, method = 'billiard_walk', n=1000, burn_in=0, thinning=1, variance=1.0, bias_vector=None, solver=None, ess=1000
     ):
         """A static function to sample from a full dimensional polytope with an MCMC method.
 
@@ -235,7 +235,7 @@ class PolytopeSampler:
 
         P = HPolytope(A, b)
 
-        samples = P.generate_samples(method.encode('utf-8'), n, burn_in, thinning, variance, bias_vector, solver)
+        samples = P.generate_samples(method.encode('utf-8'), n, burn_in, thinning, variance, bias_vector, solver, ess)
 
         samples_T = samples.T
         return samples_T
