@@ -3,7 +3,7 @@ name = "dingo"
 version = "0.1.0"
 description = "A python library for metabolic networks sampling and analysis. dingo is part of GeomScale project"
 authors = ["Apostolos Chalkis <tolis.chal@gmail.com>"]
-build = 'build.py'
+build = "build.py"
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -14,7 +14,7 @@ numpy = "^1.20.1"
 scipy = "^1.6.1"
 argparse = "^1.4.0"
 matplotlib = "^3.4.1"
-cobra = "^0.26.0"
+cobra = "^0.26.3"
 plotly = "^5.11.0"
 kaleido = "0.2.1"
 pyoptinterface = {version = "^0.2.7", extras = ["highs"]}
